@@ -1,4 +1,6 @@
-# Steps
+# Generate WORD document from template file using https://github.com/elapouya/python-docx-template
+
+## Set up
 - clone the solution 
 - Inside the root folder, create new Python env: `python -m venv .venv`
 - In VScode, select the newly created Python env using `Python: Select Interpreter` option
