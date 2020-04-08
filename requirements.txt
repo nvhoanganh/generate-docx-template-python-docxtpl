@@ -1,0 +1,8 @@
+autopep8==1.5.1
+docxtpl==0.6.4
+Jinja2==2.11.1
+lxml==4.5.0
+MarkupSafe==1.1.1
+pycodestyle==2.5.0
+python-docx==0.8.7
+six==1.14.0
