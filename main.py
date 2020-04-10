@@ -1,14 +1,19 @@
 from docxtpl import DocxTemplate, RichText, InlineImage
-from flask import escape, send_file
+from flask import escape, send_file, make_response, jsonify
 from io import open, BytesIO
 import tempfile
 import base64
 import os
+import json
 
 
 def json2docx(request):
     doc = DocxTemplate("template.docx")
     request_json = request.get_json(silent=True)
+    request_args = request.args
+
+    if request_args and 'data' in request_args:
+        request_json = json.loads(request_args['data'])
 
     # replace base64 image with temp file
     tempFiles = replaceBase64Image(doc, request_json)
@@ -20,13 +25,27 @@ def json2docx(request):
 
     # Delete tmp file
     [os.unlink(f) for f in tempFiles]
+    response = send_file(file_stream, as_attachment=True,
+                         attachment_filename=request_json['title'] + '.docx')
 
-    return send_file(file_stream, as_attachment=True, attachment_filename='output.docx')
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET,POST'
+    return response
 
 
 def template(request):
     file_stream = open("template.docx", "rb")
-    return send_file(file_stream, as_attachment=True, attachment_filename='template.docx')
+    return send_file(file_stream, as_attachment=True,
+                     attachment_filename='template.docx')
+
+
+def version(request):
+    response = make_response(
+        jsonify({"version": "0.1.0"}), 200)
+
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = '*'
+    return response
 
 
 def replaceBase64Image(doc, context):
