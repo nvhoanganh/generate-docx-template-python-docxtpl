@@ -32,6 +32,7 @@ def json2docx(request):
                          attachment_filename=request_json['title'] + '.docx')
 
     response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Cache-Control'] = 'no-cache'
     response.headers['Access-Control-Allow-Methods'] = 'GET,POST'
     return response
 
@@ -50,11 +51,12 @@ def airtable2docx(request):
 
     # Delete tmp file
     [os.unlink(f) for f in tempFiles]
-    
+
     response = send_file(file_stream, as_attachment=True,
                          attachment_filename=projectName + '.docx')
 
     response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Cache-Control'] = 'no-cache'
     response.headers['Access-Control-Allow-Methods'] = 'GET,POST'
     return response
 
