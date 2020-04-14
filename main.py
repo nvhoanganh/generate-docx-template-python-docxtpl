@@ -67,15 +67,6 @@ def template(request):
                      attachment_filename='template.docx')
 
 
-def version(request):
-    response = make_response(
-        jsonify({"version": "0.1.0"}), 200)
-
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    response.headers['Access-Control-Allow-Methods'] = '*'
-    return response
-
-
 def replaceBase64Image(doc, context):
     def toInlineImg(key):
         tmp_img_file = tempfile.NamedTemporaryFile(delete=None, suffix='.jpg')
@@ -86,4 +77,3 @@ def replaceBase64Image(doc, context):
         return tmp_img_file.name
 
     return [toInlineImg(k) for k in context.keys() if k.startswith('img_')]
-
