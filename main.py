@@ -1,10 +1,12 @@
 from docxtpl import DocxTemplate, RichText, InlineImage
 from flask import escape, send_file, make_response, jsonify
 from io import open, BytesIO
-from airtable import getSpecReviewData
+from airtable import getSpecReviewData, replaceBase64ImageFromUrl
 import tempfile
+import requests
 import base64
 import os
+import shutil
 import json
 
 
@@ -37,11 +39,18 @@ def json2docx(request):
 def airtable2docx(request):
     doc = DocxTemplate("template.docx")
     data, projectName = getSpecReviewData(request.args['projectId'])
+
+    # replace image from URL
+    tempFiles = replaceBase64ImageFromUrl(doc, data)
+
     doc.render(data)
     file_stream = BytesIO()
     doc.save(file_stream)
     file_stream.seek(0)
 
+    # Delete tmp file
+    [os.unlink(f) for f in tempFiles]
+    
     response = send_file(file_stream, as_attachment=True,
                          attachment_filename=projectName + '.docx')
 
@@ -75,3 +84,4 @@ def replaceBase64Image(doc, context):
         return tmp_img_file.name
 
     return [toInlineImg(k) for k in context.keys() if k.startswith('img_')]
+

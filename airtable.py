@@ -1,8 +1,12 @@
-from docxtpl import DocxTemplate
+from tempfile import NamedTemporaryFile
+from shutil import copyfileobj
+from urllib.request import urlopen, urlretrieve
+from docxtpl import DocxTemplate, InlineImage
 import requests
 import json
 import time
 import functools
+import tempfile
 
 baseUrl = 'https://api.airtable.com/v0/appkTAo6Zdydnm71L'
 apiKey = 'keys78IGXc0nsZtoK'
@@ -85,15 +89,32 @@ def getSpecReviewData(projectId):
         'has_more': True,
         'outscope': outScope,
         'total': '{} h'.format(totalHours),
+        'img_design': '' if 'High Level Design' not in project else project['High Level Design'][0]['url'],
         'std': '${:0,.0f}'.format(totalHours * project['Avg Rate']),
         'pre': '${:0,.0f}'.format(totalHours * project['Avg Rate (Discounted)']),
         'tasks': pbis
     }, project['Project Name']
 
 
+def replaceBase64ImageFromUrl(doc, context):
+    def toInlineImg(key):
+        tmp_img_file = tempfile.NamedTemporaryFile(delete=None, suffix='.jpg')
+        fsrc = urlopen(context[key])
+
+        print('Downloading {} to {}'.format(context[key], tmp_img_file.name))
+        copyfileobj(fsrc, tmp_img_file)
+        # dst = 'downloaded.jpg'
+        # urlretrieve(context[key], dst)
+        context[key] = InlineImage(doc, tmp_img_file.name)
+        return tmp_img_file.name
+
+    return [toInlineImg(k) for k in context.keys() if k.startswith('img_') and context[k] != '']
+
+
 if __name__ == '__main__':
     # local test
     doc = DocxTemplate("template.docx")
-    data, name = getSpecReviewData('recAAys0fsSiyEdoq')
+    data, name = getSpecReviewData('rec64QOSlzJ6QJEPO')
+    tempFiles = replaceBase64ImageFromUrl(doc, data)
     doc.render(data)
     doc.save("output.docx")
