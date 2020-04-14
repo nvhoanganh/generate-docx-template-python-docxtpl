@@ -1,6 +1,7 @@
 from docxtpl import DocxTemplate, RichText, InlineImage
 from flask import escape, send_file, make_response, jsonify
 from io import open, BytesIO
+from airtable import getSpecReviewData
 import tempfile
 import base64
 import os
@@ -27,6 +28,22 @@ def json2docx(request):
     [os.unlink(f) for f in tempFiles]
     response = send_file(file_stream, as_attachment=True,
                          attachment_filename=request_json['title'] + '.docx')
+
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET,POST'
+    return response
+
+
+def airtable2docx(request):
+    doc = DocxTemplate("template.docx")
+    data, projectName = getSpecReviewData(request.args['projectId'])
+    doc.render(data)
+    file_stream = BytesIO()
+    doc.save(file_stream)
+    file_stream.seek(0)
+
+    response = send_file(file_stream, as_attachment=True,
+                         attachment_filename=projectName + '.docx')
 
     response.headers['Access-Control-Allow-Origin'] = '*'
     response.headers['Access-Control-Allow-Methods'] = 'GET,POST'

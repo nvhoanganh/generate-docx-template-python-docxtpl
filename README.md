@@ -16,6 +16,6 @@
 -   install `gcloud` tools https://cloud.google.com/sdk/docs
 -   `gcloud init` and select existing project or create new one (login required)
 -   `gcloud functions list` to show the list of functions
--   `gcloud functions deploy json2docx --runtime python37 --trigger-http --allow-unauthenticated` to deploy the simple test function
--   `gcloud functions describe json2docx` -> get the deployed URL
--   `gcloud functions logs read json2docx`
+-   `gcloud functions deploy airtable2docx --runtime python37 --trigger-http --allow-unauthenticated` to deploy the simple test function
+-   `gcloud functions describe airtable2docx` -> get the deployed URL
+-   `gcloud functions logs read airtable2docx`
