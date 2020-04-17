@@ -4,6 +4,7 @@ from io import open, BytesIO
 from airtable import getSpecReviewData, replaceBase64ImageFromUrl
 import tempfile
 import requests
+import copy
 import base64
 import time
 import os
@@ -156,18 +157,20 @@ def sendEmail(to, subject, filename, content, apikey):
 
 def mergeDoc(template, request_json):
     doc = DocxTemplate(template)
+    tempFiles = []
+    try:
+        # replace base64 image with temp file
+        newJson = copy.deepcopy(request_json)
+        tempFiles = replaceBase64ImageFromUrl(doc, newJson)
 
-    # replace base64 image with temp file
-    tempFiles = replaceBase64ImageFromUrl(doc, request_json)
-    print('all images replaced')
-    doc.render(request_json)
-    file_stream = BytesIO()
-    doc.save(file_stream)
-    file_stream.seek(0)
-    print('word docx saved, file length is {}'.format(
-        len(file_stream.getvalue())))
-
-    # Delete tmp file
-    print('deleting temp files')
-    [os.unlink(f) for f in tempFiles if f != '']
-    return file_stream
+        doc.render(newJson)
+    except Exception as e:
+        print('Error generating document,error is {}'.format(e))
+        doc.render(request_json)
+    finally:
+        file_stream = BytesIO()
+        doc.save(file_stream)
+        file_stream.seek(0)
+        
+        [os.unlink(f) for f in tempFiles if f != '']
+        return file_stream
