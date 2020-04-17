@@ -1,6 +1,6 @@
 from tempfile import NamedTemporaryFile
 from shutil import copyfileobj
-from urllib.request import urlopen, urlretrieve
+from urllib.request import urlopen, urlretrieve, HTTPError
 from docxtpl import DocxTemplate, InlineImage
 import requests
 import json
@@ -97,18 +97,26 @@ def getSpecReviewData(projectId):
 
 
 def replaceBase64ImageFromUrl(doc, context):
+    def downloadImg(url):
+        tmpFile = tempfile.NamedTemporaryFile(delete=None, suffix='.jpg')
+        try:
+            print('Downloading {} to {}'.format(url, tmpFile.name))
+            copyfileobj(urlopen(url), tmpFile)
+            return tmpFile.name
+        except Exception as e:
+            print('Error downloading {} , error is {}'.format(url, e))
+            return ''
+
     def toInlineImg(key):
-        tmp_img_file = tempfile.NamedTemporaryFile(delete=None, suffix='.jpg')
-        fsrc = urlopen(context[key])
+        urls = [*context[key]]
+        tmpImgFiles = [downloadImg(url) for url in urls if url != '']
+        context[key] = [InlineImage(doc, filename) for filename in tmpImgFiles]
+        # return list of files names found for key
+        return tmpImgFiles
 
-        print('Downloading {} to {}'.format(context[key], tmp_img_file.name))
-        copyfileobj(fsrc, tmp_img_file)
-        # dst = 'downloaded.jpg'
-        # urlretrieve(context[key], dst)
-        context[key] = InlineImage(doc, tmp_img_file.name)
-        return tmp_img_file.name
-
-    return [toInlineImg(k) for k in context.keys() if k.startswith('img_') and context[k] != '']
+    l = [toInlineImg(k) for k in context.keys() if k.startswith('img_') and len(context[k]) > 0]    
+    # flatten the list of files
+    return [item for sublist in l for item in sublist]
 
 
 if __name__ == '__main__':

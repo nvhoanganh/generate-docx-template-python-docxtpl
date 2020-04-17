@@ -5,9 +5,16 @@ from airtable import getSpecReviewData, replaceBase64ImageFromUrl
 import tempfile
 import requests
 import base64
+import time
 import os
 import shutil
 import json
+import threading
+import base64
+from sendgrid.helpers.mail import (
+    Mail, Attachment, FileContent, FileName,
+    FileType, Disposition, ContentId)
+from sendgrid import SendGridAPIClient
 
 
 def json2docx(request):
@@ -37,6 +44,49 @@ def json2docx(request):
     return response
 
 
+def multipart(request):
+    data = request.form.to_dict()
+    jdata = {'processed': True}
+
+    if 'rawRequest' in data:
+        args = request.args
+        jdata = json.loads(data['rawRequest'])
+
+        def parseJsonKey(k):
+            jdata[k] = json.loads(jdata[k])
+
+        def getProperty(property):
+            return jdata[next((k for k in jdata.keys() if k.endswith(property)), None)]
+
+        # Replace the key that are in Raw JSON format by parsing it
+        [parseJsonKey(k) for k in jdata.keys() if k.endswith('_parse')]
+
+        print(json.dumps(jdata))
+        filename = '{}{}'.format(
+            getProperty(args['filename']), args['suffix'])
+        # Send email
+        print('Starting work on new Thread')
+        thread1 = threading.Thread(
+            target=prepareAndSend,
+            args=(getProperty(args['email']),
+                  filename,
+                  '{}.docx'.format(filename),
+                  jdata,
+                  os.environ.get('SENDGRID_API_KEY')))
+        thread1.start()
+
+    return jsonify(jdata)
+
+
+def prepareAndSend(to, subject, filename, jdata, sendGridApi):
+    sendEmail(to=to,
+              subject=subject,
+              filename=filename,
+              content=mergeDoc(
+                  'jotformtemplate.docx', jdata).read(),
+              apikey=sendGridApi)
+
+
 def airtable2docx(request):
     doc = DocxTemplate("template.docx")
     data, projectName = getSpecReviewData(request.args['projectId'])
@@ -62,9 +112,9 @@ def airtable2docx(request):
 
 
 def template(request):
-    file_stream = open("template.docx", "rb")
-    return send_file(file_stream, as_attachment=True,
-                     attachment_filename='template.docx')
+    response = file_stream = open("jotformtemplate.docx", "rb")
+    response.headers['Cache-Control'] = 'no-cache'
+    return response
 
 
 def replaceBase64Image(doc, context):
@@ -77,3 +127,47 @@ def replaceBase64Image(doc, context):
         return tmp_img_file.name
 
     return [toInlineImg(k) for k in context.keys() if k.startswith('img_')]
+
+
+def sendEmail(to, subject, filename, content, apikey):
+    # Attachment
+    print('Sending the doc to {}'.format(to))
+    message = Mail(
+        from_email='noreply@json2docx.com',
+        to_emails=to,
+        subject=subject,
+        html_content='<p>Attached: {}</p>'.format(filename))
+
+    encoded = base64.b64encode(content).decode()
+    attachment = Attachment()
+    attachment.file_content = FileContent(encoded)
+    attachment.file_type = FileType(
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+    attachment.file_name = FileName(filename)
+    attachment.disposition = Disposition('attachment')
+
+    message.attachment = attachment
+    # sendgrid_client = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
+    print('sending the email now using api key {}'.format(apikey))
+    sendgrid_client = SendGridAPIClient(apikey)
+    response = sendgrid_client.send(message)
+    print('Email sent with response code {}'.format(response.status_code))
+
+
+def mergeDoc(template, request_json):
+    doc = DocxTemplate(template)
+
+    # replace base64 image with temp file
+    tempFiles = replaceBase64ImageFromUrl(doc, request_json)
+    print('all images replaced')
+    doc.render(request_json)
+    file_stream = BytesIO()
+    doc.save(file_stream)
+    file_stream.seek(0)
+    print('word docx saved, file length is {}'.format(
+        len(file_stream.getvalue())))
+
+    # Delete tmp file
+    print('deleting temp files')
+    [os.unlink(f) for f in tempFiles if f != '']
+    return file_stream
