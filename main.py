@@ -134,7 +134,7 @@ def sendEmail(to, subject, filename, content, apikey):
     # Attachment
     print('Sending the doc to {}'.format(to))
     message = Mail(
-        from_email='noreply@json2docx.com',
+        from_email='noreply@ssw.com.au',
         to_emails=to,
         subject=subject,
         html_content='<p>Attached: {}</p>'.format(filename))
